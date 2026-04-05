@@ -934,24 +934,22 @@ window.addEventListener('appinstalled', () => toast('¡App instalada! 🎉'));
 
 document.getElementById('test-notif-btn').addEventListener('click', async () => {
   if (!('Notification' in window)) { toast('Tu navegador no soporta notificaciones'); return; }
-  if (Notification.permission !== 'granted') {
-    toast('Primero activa las notificaciones con 🔔');
+  if (Notification.permission === 'default') {
+    const r = await Notification.requestPermission();
+    updateNotifBtn();
+    if (r !== 'granted') { toast('Permiso denegado'); return; }
+  }
+  if (Notification.permission === 'denied') {
+    toast('Bloqueado — actívalo en Ajustes > Chrome > Notificaciones');
     return;
   }
-  try {
-    const sw = await navigator.serviceWorker.ready;
-    sw.showNotification('✅ ¡Notificaciones funcionan!', {
-      body: 'Las alertas de tus tareas llegarán correctamente.',
-      icon: './icon.svg',
-      tag: 'test-' + Date.now()
-    });
-  } catch(e) {
-    new Notification('✅ ¡Notificaciones funcionan!', {
-      body: 'Las alertas de tus tareas llegarán correctamente.',
-      icon: './icon.svg'
-    });
-  }
-  toast('Notificación de prueba enviada 🧪');
+  // Direct notification, no SW needed
+  const n = new Notification('✅ ¡Funciona!', {
+    body: 'Las notificaciones de tus tareas llegarán correctamente.',
+    icon: './icon.svg'
+  });
+  n.onerror = (e) => toast('Error: ' + e);
+  toast('¡Enviada! Mira la barra de notificaciones 🧪');
 });
 const notifTimers = {};
 
