@@ -93,6 +93,23 @@
       font-weight: 700;
     }
 
+    .notif-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .notif-btn.granted { border-color: var(--accent); background: rgba(200,241,53,0.1); }
+    .notif-btn.denied  { border-color: var(--danger); opacity: 0.5; cursor: not-allowed; }
+
     /* ── FILTROS ── */
     .filters {
       display: flex;
@@ -556,7 +573,10 @@
   <header>
     <div class="header-top">
       <div class="logo">Mi<span>s</span> Tareas</div>
-      <div class="stats-pill" id="stats-pill">0 pendientes</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="stats-pill" id="stats-pill">0 pendientes</div>
+        <button class="notif-btn" id="notif-btn" title="Activar notificaciones">🔔</button>
+      </div>
     </div>
     <div class="filters" id="filters">
       <button class="filter-btn active" data-filter="todas">Todas</button>
@@ -624,8 +644,16 @@
         </div>
       </div>
 
-      <label>Fecha límite</label>
-      <input type="date" id="inp-fecha" />
+      <div class="row2">
+        <div>
+          <label>Fecha límite</label>
+          <input type="date" id="inp-fecha" />
+        </div>
+        <div>
+          <label>Hora límite</label>
+          <input type="time" id="inp-hora" />
+        </div>
+      </div>
 
       <button class="btn-submit" id="btn-guardar">Guardar tarea</button>
     </div>
@@ -793,6 +821,7 @@ function openModal(reset = true) {
     document.getElementById('inp-prioridad').value = 'media';
     document.getElementById('inp-cat').value = 'personal';
     document.getElementById('inp-fecha').value = '';
+    document.getElementById('inp-hora').value = '';
     document.getElementById('btn-guardar').textContent = 'Guardar tarea';
   }
   document.getElementById('overlay').classList.add('open');
@@ -809,6 +838,7 @@ function openEdit(id) {
   document.getElementById('inp-prioridad').value = t.prioridad;
   document.getElementById('inp-cat').value = t.categoria;
   document.getElementById('inp-fecha').value = t.fecha || '';
+  document.getElementById('inp-hora').value = t.hora || '';
   document.getElementById('btn-guardar').textContent = 'Actualizar';
   openModal(false);
 }
@@ -836,6 +866,7 @@ document.getElementById('btn-guardar').addEventListener('click', () => {
     prioridad: document.getElementById('inp-prioridad').value,
     categoria: document.getElementById('inp-cat').value,
     fecha: document.getElementById('inp-fecha').value,
+    hora: document.getElementById('inp-hora').value,
   };
   if (editingId) {
     const i = tasks.findIndex(x => x.id === editingId);
@@ -846,6 +877,7 @@ document.getElementById('btn-guardar').addEventListener('click', () => {
     toast('Tarea añadida ✓');
   }
   save(); render(); closeModal();
+  scheduleAllNotifications();
 });
 
 // ── FILTERS ──────────────────────────────────────────────
@@ -895,8 +927,82 @@ window.addEventListener('beforeinstallprompt', e => {
 
 window.addEventListener('appinstalled', () => toast('¡App instalada! 🎉'));
 
+// ── NOTIFICATIONS ──────────────────────────────────────
+const notifTimers = {};
+
+function updateNotifBtn() {
+  const btn = document.getElementById('notif-btn');
+  if (!('Notification' in window)) { btn.style.display = 'none'; return; }
+  if (Notification.permission === 'granted') {
+    btn.textContent = '🔔'; btn.classList.add('granted'); btn.classList.remove('denied');
+    btn.title = 'Notificaciones activas';
+  } else if (Notification.permission === 'denied') {
+    btn.textContent = '🔕'; btn.classList.add('denied'); btn.classList.remove('granted');
+    btn.title = 'Notificaciones bloqueadas — actívalas en ajustes del navegador';
+  } else {
+    btn.textContent = '🔔'; btn.classList.remove('granted','denied');
+    btn.title = 'Pulsa para activar notificaciones';
+  }
+}
+
+document.getElementById('notif-btn').addEventListener('click', async () => {
+  if (!('Notification' in window)) { toast('Tu navegador no soporta notificaciones'); return; }
+  if (Notification.permission === 'denied') { toast('Actívalas en ajustes del navegador'); return; }
+  const result = await Notification.requestPermission();
+  updateNotifBtn();
+  if (result === 'granted') {
+    toast('¡Notificaciones activadas! 🔔');
+    scheduleAllNotifications();
+  } else {
+    toast('Notificaciones denegadas');
+  }
+});
+
+function scheduleAllNotifications() {
+  if (Notification.permission !== 'granted') return;
+  // Cancel existing timers
+  Object.values(notifTimers).forEach(clearTimeout);
+  Object.keys(notifTimers).forEach(k => delete notifTimers[k]);
+
+  const now = Date.now();
+  tasks.forEach(t => {
+    if (t.done || !t.fecha || !t.hora) return;
+    const deadline = new Date(`${t.fecha}T${t.hora}:00`).getTime();
+    const alertAt  = deadline - 10 * 60 * 1000; // 10 min before
+    const delay    = alertAt - now;
+    if (delay <= 0) return;
+
+    const notifTitle = `⏰ En 10 min: ${t.titulo}`;
+    const notifBody  = `Categoría: ${t.categoria} · Prioridad: ${t.prioridad}`;
+
+    // Schedule in SW (survives background/screen off)
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SCHEDULE_NOTIF',
+        taskId: t.id,
+        title: notifTitle,
+        body: notifBody,
+        delay
+      });
+    }
+
+    // Also schedule in page (fallback when app is open)
+    notifTimers[t.id] = setTimeout(() => {
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_NOTIF', title: notifTitle, body: notifBody, tag: t.id
+        });
+      } else {
+        new Notification(notifTitle, { body: notifBody, icon: './icon.svg', tag: t.id });
+      }
+    }, delay);
+  });
+}
+
 // ── INIT ──────────────────────────────────────────────
 render();
+updateNotifBtn();
+scheduleAllNotifications();
 </script>
 
 <!-- Service Worker -->
