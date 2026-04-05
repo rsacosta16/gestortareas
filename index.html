@@ -691,14 +691,18 @@ function getFiltered() {
 
 function formatDate(str) {
   if (!str) return '';
-  const d = new Date(str + 'T12:00:00');
   const today = new Date();
-  today.setHours(0,0,0,0);
-  const diff = Math.round((d - today) / 86400000);
-  if (diff < 0) return { text: 'Vencida', cls: 'vencida' };
-  if (diff === 0) return { text: 'Hoy', cls: '' };
-  if (diff === 1) return { text: 'Mañana', cls: '' };
-  return { text: d.toLocaleDateString('es', { day:'numeric', month:'short' }), cls: '' };
+  const todayStr = today.toISOString().slice(0, 10);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+  if (str < todayStr)    return { text: 'Vencida', cls: 'vencida' };
+  if (str === todayStr)  return { text: 'Hoy', cls: '' };
+  if (str === tomorrowStr) return { text: 'Mañana', cls: '' };
+
+  const d = new Date(str + 'T12:00:00');
+  return { text: d.toLocaleDateString('es', { day: 'numeric', month: 'short' }), cls: '' };
 }
 
 function render() {
