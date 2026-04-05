@@ -576,6 +576,7 @@
       <div style="display:flex;gap:8px;align-items:center">
         <div class="stats-pill" id="stats-pill">0 pendientes</div>
         <button class="notif-btn" id="notif-btn" title="Activar notificaciones">🔔</button>
+        <button class="notif-btn" id="test-notif-btn" title="Probar notificación">🧪</button>
       </div>
     </div>
     <div class="filters" id="filters">
@@ -931,7 +932,27 @@ window.addEventListener('beforeinstallprompt', e => {
 
 window.addEventListener('appinstalled', () => toast('¡App instalada! 🎉'));
 
-// ── NOTIFICATIONS ──────────────────────────────────────
+document.getElementById('test-notif-btn').addEventListener('click', async () => {
+  if (!('Notification' in window)) { toast('Tu navegador no soporta notificaciones'); return; }
+  if (Notification.permission !== 'granted') {
+    toast('Primero activa las notificaciones con 🔔');
+    return;
+  }
+  try {
+    const sw = await navigator.serviceWorker.ready;
+    sw.showNotification('✅ ¡Notificaciones funcionan!', {
+      body: 'Las alertas de tus tareas llegarán correctamente.',
+      icon: './icon.svg',
+      tag: 'test-' + Date.now()
+    });
+  } catch(e) {
+    new Notification('✅ ¡Notificaciones funcionan!', {
+      body: 'Las alertas de tus tareas llegarán correctamente.',
+      icon: './icon.svg'
+    });
+  }
+  toast('Notificación de prueba enviada 🧪');
+});
 const notifTimers = {};
 
 function updateNotifBtn() {
