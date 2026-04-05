@@ -883,6 +883,10 @@ document.getElementById('btn-guardar').addEventListener('click', () => {
   }
   save(); render(); closeModal();
   scheduleAllNotifications();
+  if (window.syncFCM) {
+    const token = localStorage.getItem('fcm_token');
+    if (token) window.syncFCM(token);
+  }
 });
 
 // ── FILTERS ──────────────────────────────────────────────
@@ -974,6 +978,7 @@ document.getElementById('notif-btn').addEventListener('click', async () => {
   if (result === 'granted') {
     toast('¡Notificaciones activadas! 🔔');
     scheduleAllNotifications();
+    window.dispatchEvent(new Event('notif-permission-granted'));
   } else {
     toast('Notificaciones denegadas');
   }
@@ -1031,6 +1036,84 @@ scheduleAllNotifications();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
+</script>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCZK7j4T33351EBzpmXUZeod358AU27eng",
+  authDomain: "mis-tareas-app-806a4.firebaseapp.com",
+  projectId: "mis-tareas-app-806a4",
+  storageBucket: "mis-tareas-app-806a4.firebasestorage.app",
+  messagingSenderId: "939081546373",
+  appId: "1:939081546373:web:2693b599ba52f170e747ec"
+};
+
+const VAPID_KEY = "BD1VjDISsT2Nqh0_Y6D1MxUsLHDMnp3Zr87fccSKVI18Knt8MlUhj-u0mR5XtiqvwsNeNPMQkl5I-k3R3ajhI_s";
+
+const app = initializeApp(firebaseConfig);
+const messaging = getMessaging(app);
+
+// Register FCM service worker
+async function initFCM() {
+  try {
+    const swReg = await navigator.serviceWorker.register('firebase-sw.js');
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
+    if (token) {
+      localStorage.setItem('fcm_token', token);
+      console.log('FCM token:', token);
+      // Send token + tasks to scheduling server
+      syncTasksWithServer(token);
+    }
+  } catch(e) {
+    console.warn('FCM init error:', e);
+  }
+}
+
+// Send tasks to Firebase so it can schedule push notifications
+async function syncTasksWithServer(token) {
+  const tasks = JSON.parse(localStorage.getItem('tareas_v2') || '[]');
+  const pending = tasks.filter(t => !t.done && t.fecha && t.hora);
+  // Store token and tasks in Firestore via REST
+  try {
+    await fetch(`https://firestore.googleapis.com/v1/projects/mis-tareas-app-806a4/databases/(default)/documents/devices/${encodeURIComponent(token)}?key=AIzaSyCZK7j4T33351EBzpmXUZeod358AU27eng`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields: {
+          token: { stringValue: token },
+          tasks: { stringValue: JSON.stringify(pending) },
+          updatedAt: { stringValue: new Date().toISOString() }
+        }
+      })
+    });
+    console.log('Tasks synced with server');
+  } catch(e) {
+    console.warn('Sync error:', e);
+  }
+}
+
+// Expose syncTasksWithServer globally so task save can call it
+window.syncFCM = syncTasksWithServer;
+
+// Handle foreground messages
+onMessage(messaging, payload => {
+  console.log('FCM message received:', payload);
+  const { title, body } = payload.notification || {};
+  if (title) {
+    navigator.serviceWorker.ready.then(sw => {
+      sw.showNotification(title, { body, icon: './icon.svg', tag: 'fcm' });
+    });
+  }
+});
+
+if (Notification.permission === 'granted') initFCM();
+
+// Re-init when permission is granted
+window.addEventListener('notif-permission-granted', initFCM);
 </script>
 </body>
 </html>
