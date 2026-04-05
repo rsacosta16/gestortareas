@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Tareas" />
+  <meta name="description" content="App de gestión de tareas" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <title>Tareas</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #181818;
+      --surface2: #222222;
+      --border: #2a2a2a;
+      --accent: #c8f135;
+      --accent2: #7b61ff;
+      --text: #f0f0f0;
+      --muted: #666;
+      --danger: #ff4e4e;
+      --done: #444;
+      --radius: 16px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      padding: calc(var(--safe-top) + 20px) 24px 0;
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 26px;
+      letter-spacing: -0.5px;
+    }
+
+    .logo span {
+      color: var(--accent);
+    }
+
+    .stats-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 14px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .stats-pill b {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* ── FILTROS ── */
+    .filters {
+      display: flex;
+      gap: 8px;
+      padding-bottom: 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .filters::-webkit-scrollbar { display: none; }
+
+    .filter-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 7px 16px;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .filter-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #0f0f0f;
+      font-weight: 700;
+    }
+
+    /* ── PROGRESS BAR ── */
+    .progress-wrap {
+      padding: 0 24px 20px;
+      background: var(--bg);
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 100px;
+      transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* ── TASK LIST ── */
+    main {
+      flex: 1;
+      padding: 0 16px;
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    main::-webkit-scrollbar { display: none; }
+
+    .section-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      padding: 16px 8px 10px;
+    }
+
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-bottom: 8px;
+    }
+
+    .task-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.2s, border-color 0.2s;
+      animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .task-card:active { transform: scale(0.98); }
+
+    .task-card.done {
+      opacity: 0.5;
+    }
+
+    .task-card.done .task-title {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    .task-card .priority-bar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      border-radius: 16px 0 0 16px;
+    }
+
+    .priority-alta  { background: #ff4e4e; }
+    .priority-media { background: #f0a500; }
+    .priority-baja  { background: var(--accent); }
+
+    /* Checkbox */
+    .check-wrap {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .check-wrap input[type="checkbox"] {
+      display: none;
+    }
+
+    .check-circle {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .check-wrap input:checked + .check-circle {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .check-wrap input:checked + .check-circle::after {
+      content: '';
+      width: 10px;
+      height: 6px;
+      border-left: 2px solid #0f0f0f;
+      border-bottom: 2px solid #0f0f0f;
+      transform: rotate(-45deg) translateY(-1px);
+      display: block;
+    }
+
+    .task-content { flex: 1; min-width: 0; }
+
+    .task-title {
+      font-weight: 500;
+      font-size: 15px;
+      line-height: 1.4;
+      word-break: break-word;
+      margin-bottom: 4px;
+    }
+
+    .task-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .task-cat {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 100px;
+      background: var(--surface2);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .task-date {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .task-date.vencida { color: var(--danger); }
+
+    .task-actions {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .btn-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: var(--surface2);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 16px;
+    }
+
+    .btn-icon:active { transform: scale(0.9); }
+    .btn-icon.del:active { background: var(--danger); color: #fff; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--muted);
+    }
+
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state h3 { font-family: 'Syne', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 6px; }
+    .empty-state p { font-size: 14px; line-height: 1.6; }
+
+    /* ── BOTTOM NAV ── */
+    .bottom-bar {
+      padding: 12px 16px calc(var(--safe-bottom) + 12px);
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      position: sticky;
+      bottom: 0;
+    }
+
+    .add-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #0f0f0f;
+      border: none;
+      border-radius: 14px;
+      padding: 16px;
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.15s, opacity 0.15s;
+      letter-spacing: -0.2px;
+    }
+
+    .add-btn:active { transform: scale(0.97); opacity: 0.9; }
+
+    /* ── MODAL ── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      display: flex;
+      align-items: flex-end;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+
+    .overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .sheet {
+      background: var(--surface);
+      border-radius: 24px 24px 0 0;
+      padding: 24px 24px calc(var(--safe-bottom) + 24px);
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+      border: 1px solid var(--border);
+    }
+
+    .overlay.open .sheet {
+      transform: translateY(0);
+    }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 100px;
+      margin: 0 auto 20px;
+    }
+
+    .sheet h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input[type="text"], input[type="date"], select, textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+      margin-bottom: 16px;
+      -webkit-appearance: none;
+    }
+
+    input[type="text"]:focus,
+    input[type="date"]:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea { resize: none; min-height: 72px; }
+
+    select option { background: var(--surface2); }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .btn-submit {
+      width: 100%;
+      background: var(--accent);
+      color: #0f0f0f;
+      border: none;
+      border-radius: 12px;
+      padding: 15px;
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+
+    .btn-submit:active { transform: scale(0.98); opacity: 0.9; }
+
+    /* ── INSTALL BANNER ── */
+    #install-banner {
+      position: fixed;
+      bottom: 80px;
+      left: 16px;
+      right: 16px;
+      max-width: 448px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 50;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    #install-banner p {
+      flex: 1;
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--text);
+    }
+
+    #install-banner p b { color: var(--accent); }
+
+    .install-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    .btn-install {
+      background: var(--accent);
+      color: #0f0f0f;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn-dismiss {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      top: calc(var(--safe-top) + 16px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-60px);
+      background: var(--text);
+      color: var(--bg);
+      padding: 10px 20px;
+      border-radius: 100px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 200;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      white-space: nowrap;
+    }
+
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 0; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-top">
+      <div class="logo">Mi<span>s</span> Tareas</div>
+      <div class="stats-pill" id="stats-pill">0 pendientes</div>
+    </div>
+    <div class="filters" id="filters">
+      <button class="filter-btn active" data-filter="todas">Todas</button>
+      <button class="filter-btn" data-filter="pendientes">Pendientes</button>
+      <button class="filter-btn" data-filter="completadas">Completadas</button>
+      <button class="filter-btn" data-filter="alta">🔴 Alta</button>
+      <button class="filter-btn" data-filter="media">🟡 Media</button>
+      <button class="filter-btn" data-filter="baja">🟢 Baja</button>
+    </div>
+  </header>
+
+  <div class="progress-wrap">
+    <div class="progress-label">
+      <span>Progreso</span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <main id="main">
+    <div class="task-list" id="task-list"></div>
+  </main>
+
+  <div class="bottom-bar">
+    <button class="add-btn" id="open-modal-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Nueva tarea
+    </button>
+  </div>
+
+  <!-- Modal -->
+  <div class="overlay" id="overlay">
+    <div class="sheet" id="sheet">
+      <div class="sheet-handle"></div>
+      <h2 id="modal-title">Nueva Tarea</h2>
+
+      <label>Título *</label>
+      <input type="text" id="inp-titulo" placeholder="¿Qué hay que hacer?" maxlength="120" />
+
+      <label>Descripción</label>
+      <textarea id="inp-desc" placeholder="Detalles opcionales..."></textarea>
+
+      <div class="row2">
+        <div>
+          <label>Prioridad</label>
+          <select id="inp-prioridad">
+            <option value="media">Media</option>
+            <option value="alta">Alta</option>
+            <option value="baja">Baja</option>
+          </select>
+        </div>
+        <div>
+          <label>Categoría</label>
+          <select id="inp-cat">
+            <option value="personal">Personal</option>
+            <option value="trabajo">Trabajo</option>
+            <option value="compras">Compras</option>
+            <option value="salud">Salud</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+      </div>
+
+      <label>Fecha límite</label>
+      <input type="date" id="inp-fecha" />
+
+      <button class="btn-submit" id="btn-guardar">Guardar tarea</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="install-banner" style="display:none"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────
+let tasks = JSON.parse(localStorage.getItem('tareas_v2') || '[]');
+let filter = 'todas';
+let editingId = null;
+let deferredPrompt = null;
+
+function save() {
+  localStorage.setItem('tareas_v2', JSON.stringify(tasks));
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+// ── RENDER ──────────────────────────────────────────────
+function getFiltered() {
+  return tasks.filter(t => {
+    if (filter === 'pendientes') return !t.done;
+    if (filter === 'completadas') return t.done;
+    if (filter === 'alta') return t.prioridad === 'alta' && !t.done;
+    if (filter === 'media') return t.prioridad === 'media' && !t.done;
+    if (filter === 'baja') return t.prioridad === 'baja' && !t.done;
+    return true;
+  });
+}
+
+function formatDate(str) {
+  if (!str) return '';
+  const d = new Date(str + 'T12:00:00');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const diff = Math.round((d - today) / 86400000);
+  if (diff < 0) return { text: 'Vencida', cls: 'vencida' };
+  if (diff === 0) return { text: 'Hoy', cls: '' };
+  if (diff === 1) return { text: 'Mañana', cls: '' };
+  return { text: d.toLocaleDateString('es', { day:'numeric', month:'short' }), cls: '' };
+}
+
+function render() {
+  const list = document.getElementById('task-list');
+  const items = getFiltered();
+
+  // Stats
+  const pending = tasks.filter(t => !t.done).length;
+  document.getElementById('stats-pill').innerHTML = `<b>${pending}</b> pendiente${pending !== 1 ? 's' : ''}`;
+
+  // Progress
+  const total = tasks.length;
+  const done = tasks.filter(t => t.done).length;
+  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent = pct + '%';
+
+  if (items.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">✨</div>
+        <h3>${filter === 'completadas' ? '¡Sin completadas aún!' : 'Sin tareas aquí'}</h3>
+        <p>${filter === 'todas' ? 'Pulsa el botón verde para añadir tu primera tarea.' : 'Prueba otro filtro o crea nuevas tareas.'}</p>
+      </div>`;
+    return;
+  }
+
+  // Separar pendientes / completadas
+  const pending_items = items.filter(t => !t.done);
+  const done_items = items.filter(t => t.done);
+
+  let html = '';
+
+  if (pending_items.length > 0) {
+    if (filter === 'todas') html += `<div class="section-label">Pendientes</div>`;
+    html += `<div class="task-list">${pending_items.map(taskHTML).join('')}</div>`;
+  }
+
+  if (done_items.length > 0) {
+    html += `<div class="section-label">Completadas</div>`;
+    html += `<div class="task-list">${done_items.map(taskHTML).join('')}</div>`;
+  }
+
+  list.innerHTML = html;
+  bindTaskEvents();
+}
+
+function taskHTML(t) {
+  const df = formatDate(t.fecha);
+  const dateHtml = df ? `<span class="task-date ${df.cls || ''}">${df.text}</span>` : '';
+  return `
+    <div class="task-card ${t.done ? 'done' : ''}" data-id="${t.id}">
+      <div class="priority-bar priority-${t.prioridad}"></div>
+      <label class="check-wrap">
+        <input type="checkbox" ${t.done ? 'checked' : ''} data-check="${t.id}" />
+        <div class="check-circle"></div>
+      </label>
+      <div class="task-content">
+        <div class="task-title">${escHtml(t.titulo)}</div>
+        <div class="task-meta">
+          <span class="task-cat">${t.categoria}</span>
+          ${dateHtml}
+        </div>
+      </div>
+      <div class="task-actions">
+        <button class="btn-icon" data-edit="${t.id}" title="Editar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+        <button class="btn-icon del" data-del="${t.id}" title="Eliminar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+          </svg>
+        </button>
+      </div>
+    </div>`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function bindTaskEvents() {
+  document.querySelectorAll('[data-check]').forEach(cb => {
+    cb.addEventListener('change', e => {
+      const id = e.target.dataset.check;
+      const t = tasks.find(x => x.id === id);
+      if (t) { t.done = e.target.checked; save(); render(); }
+    });
+  });
+
+  document.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.del;
+      tasks = tasks.filter(x => x.id !== id);
+      save(); render();
+      toast('Tarea eliminada');
+    });
+  });
+
+  document.querySelectorAll('[data-edit]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.edit;
+      openEdit(id);
+    });
+  });
+}
+
+// ── MODAL ──────────────────────────────────────────────
+function openModal(reset = true) {
+  if (reset) {
+    editingId = null;
+    document.getElementById('modal-title').textContent = 'Nueva Tarea';
+    document.getElementById('inp-titulo').value = '';
+    document.getElementById('inp-desc').value = '';
+    document.getElementById('inp-prioridad').value = 'media';
+    document.getElementById('inp-cat').value = 'personal';
+    document.getElementById('inp-fecha').value = '';
+    document.getElementById('btn-guardar').textContent = 'Guardar tarea';
+  }
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(() => document.getElementById('inp-titulo').focus(), 350);
+}
+
+function openEdit(id) {
+  const t = tasks.find(x => x.id === id);
+  if (!t) return;
+  editingId = id;
+  document.getElementById('modal-title').textContent = 'Editar Tarea';
+  document.getElementById('inp-titulo').value = t.titulo;
+  document.getElementById('inp-desc').value = t.descripcion || '';
+  document.getElementById('inp-prioridad').value = t.prioridad;
+  document.getElementById('inp-cat').value = t.categoria;
+  document.getElementById('inp-fecha').value = t.fecha || '';
+  document.getElementById('btn-guardar').textContent = 'Actualizar';
+  openModal(false);
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('open');
+}
+
+document.getElementById('open-modal-btn').addEventListener('click', () => openModal());
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('overlay')) closeModal();
+});
+
+document.getElementById('btn-guardar').addEventListener('click', () => {
+  const titulo = document.getElementById('inp-titulo').value.trim();
+  if (!titulo) {
+    document.getElementById('inp-titulo').focus();
+    document.getElementById('inp-titulo').style.borderColor = 'var(--danger)';
+    setTimeout(() => document.getElementById('inp-titulo').style.borderColor = '', 1500);
+    return;
+  }
+  const data = {
+    titulo,
+    descripcion: document.getElementById('inp-desc').value.trim(),
+    prioridad: document.getElementById('inp-prioridad').value,
+    categoria: document.getElementById('inp-cat').value,
+    fecha: document.getElementById('inp-fecha').value,
+  };
+  if (editingId) {
+    const i = tasks.findIndex(x => x.id === editingId);
+    if (i >= 0) tasks[i] = { ...tasks[i], ...data };
+    toast('Tarea actualizada ✓');
+  } else {
+    tasks.unshift({ id: uid(), done: false, creadaEn: Date.now(), ...data });
+    toast('Tarea añadida ✓');
+  }
+  save(); render(); closeModal();
+});
+
+// ── FILTERS ──────────────────────────────────────────────
+document.getElementById('filters').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filter = btn.dataset.filter;
+  render();
+});
+
+// ── TOAST ──────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ── INSTALL BANNER ──────────────────────────────────────
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const banner = document.getElementById('install-banner');
+  banner.style.display = 'flex';
+  banner.innerHTML = `
+    <span style="font-size:22px">📲</span>
+    <p><b>Instalar como app</b><br>Añade Mis Tareas a tu pantalla de inicio</p>
+    <div class="install-actions">
+      <button class="btn-install" id="btn-install">Instalar</button>
+      <button class="btn-dismiss" id="btn-dismiss">✕</button>
+    </div>`;
+  document.getElementById('btn-install').addEventListener('click', async () => {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    banner.style.display = 'none';
+    if (outcome === 'accepted') toast('¡App instalada! 🎉');
+    deferredPrompt = null;
+  });
+  document.getElementById('btn-dismiss').addEventListener('click', () => {
+    banner.style.display = 'none';
+  });
+});
+
+window.addEventListener('appinstalled', () => toast('¡App instalada! 🎉'));
+
+// ── INIT ──────────────────────────────────────────────
+render();
+</script>
+
+<!-- Service Worker -->
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
