@@ -933,6 +933,7 @@ window.addEventListener('beforeinstallprompt', e => {
 window.addEventListener('appinstalled', () => toast('¡App instalada! 🎉'));
 
 document.getElementById('test-notif-btn').addEventListener('click', async () => {
+  alert('Soporte: ' + ('Notification' in window) + ' | Permiso: ' + Notification.permission);
   if (!('Notification' in window)) { toast('Tu navegador no soporta notificaciones'); return; }
   if (Notification.permission === 'default') {
     const r = await Notification.requestPermission();
@@ -943,7 +944,6 @@ document.getElementById('test-notif-btn').addEventListener('click', async () => 
     toast('Bloqueado — actívalo en Ajustes > Chrome > Notificaciones');
     return;
   }
-  // Direct notification, no SW needed
   const n = new Notification('✅ ¡Funciona!', {
     body: 'Las notificaciones de tus tareas llegarán correctamente.',
     icon: './icon.svg'
